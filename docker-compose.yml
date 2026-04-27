@@ -1,0 +1,25 @@
+services:
+  soll:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: soll:dev
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+    stdin_open: true
+    tty: true
+    # Default: roda o servidor FastAPI. Para CLI, use:
+    #   docker compose run --rm soll soll-cli
+
+  # Redis local opcional (default = usar o REDIS_URL do .env, ex. Redis Cloud).
+  # Para subir Redis local: docker compose --profile local-redis up
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    profiles:
+      - local-redis

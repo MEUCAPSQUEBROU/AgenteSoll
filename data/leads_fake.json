@@ -1,0 +1,32 @@
+{
+  "5579988887777": {
+    "primeiro_nome": "Carla",
+    "etapa_funil": "VALIDACAO_CIDADE",
+    "cidade": "Aracaju",
+    "valor_conta": 380
+  },
+  "5579955554444": {
+    "primeiro_nome": "Roberto",
+    "etapa_funil": "TIPO_IMOVEL",
+    "cidade": "Itabaiana",
+    "valor_conta": 720,
+    "tipo_imovel": "CASA_PROPRIA"
+  },
+  "5579933332222": {
+    "primeiro_nome": "Patricia",
+    "etapa_funil": "CALCULO_REALIZADO",
+    "classificacao": "HOT",
+    "cidade": "Lagarto",
+    "valor_conta": 950,
+    "tipo_imovel": "EMPRESA_PROPRIA",
+    "tipo_telhado": "METALICO",
+    "incidencia_sol": "SIM"
+  },
+  "cli-user": {
+    "primeiro_nome": "Juan",
+    "valor_conta": "500",
+    "etapa_funil": "PROVA_SOCIAL",
+    "cidade": "Aracaju",
+    "tipo_imovel": "CASA_PROPRIA"
+  }
+}
