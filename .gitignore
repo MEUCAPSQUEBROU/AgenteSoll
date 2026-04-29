@@ -37,3 +37,8 @@ Thumbs.db
 
 # uv
 uv.lock
+
+# Docs (não versionar documentação interna)
+*.docx
+*.doc
+*.pdf
