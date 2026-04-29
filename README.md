@@ -154,3 +154,4 @@ src/soll/
 - Adapter real da Meta Cloud API (apenas skeleton com `NotImplementedError`)
 - Persistência de leads (planilhas, CRM)
 - Envio outbound (foco é só inbound)
+# SollAgenteIA
