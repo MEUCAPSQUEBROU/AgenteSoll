@@ -25,6 +25,9 @@ htmlcov/
 venv/
 env/
 
+# Claude Code (config local com permissões/credenciais — nunca versionar)
+.claude/settings.local.json
+
 # IDE
 .idea/
 .vscode/
