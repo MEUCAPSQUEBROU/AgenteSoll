@@ -67,7 +67,10 @@ def create_app(
             max_messages=settings.buffer_max_messages,
             ttl_seconds=settings.buffer_key_ttl_seconds,
         )
-        runner: AgentRunner = agent or SollAgent(openai_api_key=settings.openai_api_key)
+        runner: AgentRunner = agent or SollAgent(
+            openai_api_key=settings.openai_api_key,
+            redis_url=settings.redis_url,
+        )
 
         app.state.settings = settings
         app.state.http = http

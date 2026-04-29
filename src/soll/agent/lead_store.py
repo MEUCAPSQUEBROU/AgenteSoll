@@ -38,6 +38,16 @@ class LeadStore:
         log.info("lead_store.upsert", user_number=user_number, campo=campo)
         return lead
 
+    async def delete(self, user_number: str) -> bool:
+        async with self._lock:
+            data = await self._load()
+            if user_number not in data:
+                return False
+            del data[user_number]
+            await self._save(data)
+        log.info("lead_store.delete", user_number=user_number)
+        return True
+
     async def _load(self) -> dict[str, LeadData]:
         if not self._path.exists():
             return {}

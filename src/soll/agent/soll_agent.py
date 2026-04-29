@@ -5,6 +5,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
 
 from agno.agent import Agent
+from agno.db.redis import RedisDb
 from agno.models.openai import OpenAIChat
 
 from soll.agent.prompts import build_system_prompt
@@ -57,6 +58,8 @@ class SollAgent:
         system_prompt_builder: Callable[[str], str] = build_system_prompt,
         tools_builder: ToolsBuilder = _no_tools,
         state_provider: StateProvider = _empty_state,
+        redis_url: str | None = None,
+        db_prefix: str = "soll_agno",
     ) -> None:
         self._api_key = openai_api_key
         self._model_id = model_id
@@ -64,6 +67,19 @@ class SollAgent:
         self._build_tools = tools_builder
         self._state_provider = state_provider
         self._agents: dict[str, Agent] = {}
+        self._db = (
+            RedisDb(db_url=redis_url, db_prefix=db_prefix)
+            if redis_url is not None
+            else None
+        )
+
+    async def forget(self, user_number: str) -> None:
+        self._agents.pop(user_number, None)
+        if self._db is not None:
+            try:
+                self._db.delete_session(session_id=user_number)
+            except Exception:
+                log.exception("agent.forget_db_error", user_number=user_number)
 
     def _get_or_create(self, user_number: str) -> Agent:
         existing = self._agents.get(user_number)
@@ -74,6 +90,7 @@ class SollAgent:
             instructions=self._build_prompt(user_number),
             tools=list(self._build_tools(user_number)),
             markdown=False,
+            db=self._db,
             add_history_to_context=True,
         )
         self._agents[user_number] = agent

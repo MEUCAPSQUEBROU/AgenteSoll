@@ -33,28 +33,40 @@ def build_tools(*, store: LeadStore, user_number: str) -> list[ToolFn]:
         result = await store.upsert_field(user_number, campo, valor)
         return result
 
-    async def CalKWats(valor_fatura: float) -> dict[str, Any]:  # noqa: N802
-        """Calcula a economia aproximada com energia solar a partir do valor da fatura em R$.
+    async def CalKWats(valor_fatura: float, tipo_imovel: str) -> dict[str, Any]:  # noqa: N802
+        """Calcula a ESTIMATIVA de economia com energia solar.
 
-        Retorna um dicionario com campos ja formatados em BRL prontos pra inserir
+        Aplica reducao de 78% (residencial) ou 85% (empresarial) sobre o valor da
+        fatura. O resultado e estimativa, nao garantia — sempre apresentar como tal.
+
+        Args:
+            valor_fatura: Valor mensal da conta em R$. Se o lead informou em kWh,
+                converta antes (`valor_fatura = kwh * 0.95`).
+            tipo_imovel: Um de `CASA_PROPRIA`, `CASA_ALUGADA`, `EMPRESA_PROPRIA`
+                ou `EMPRESA_ALUGADA`. Define o percentual de reducao aplicado.
+
+        Retorna dicionario com campos ja formatados em BRL prontos pra inserir
         nas mensagens (`gasto_atual_estimado`, `gasto_com_solar_estimado`,
         `economia_mensal_valor`, `economia_anual_estimada`, `percentual_economia`,
-        `consumo_analisado`).
-
-        Se o lead informou kWh em vez de R$, multiplique por 0.95 antes de chamar.
-        Se valor_fatura <= 0, retorna `{"error": ...}` — peca confirmacao do valor ao lead.
+        `consumo_analisado`, `tipo_imovel`).
         """
         try:
-            estimate = calculate_savings(valor_fatura)
+            estimate = calculate_savings(valor_fatura, tipo_imovel)
         except ValueError as exc:
             log.warning(
                 "tool.CalKWats_error",
                 user_number=user_number,
                 valor_fatura=valor_fatura,
+                tipo_imovel=tipo_imovel,
                 error=str(exc),
             )
             return {"error": str(exc)}
-        log.info("tool.CalKWats", user_number=user_number, valor_fatura=valor_fatura)
+        log.info(
+            "tool.CalKWats",
+            user_number=user_number,
+            valor_fatura=valor_fatura,
+            tipo_imovel=tipo_imovel,
+        )
         return dict(estimate.model_dump())
 
     async def department(motivo: str) -> dict[str, Any]:

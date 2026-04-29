@@ -24,9 +24,14 @@
   },
   "cli-user": {
     "primeiro_nome": "Juan",
-    "valor_conta": "500",
-    "etapa_funil": "PROVA_SOCIAL",
-    "cidade": "Aracaju",
-    "tipo_imovel": "CASA_PROPRIA"
+    "etapa_funil": "NECESSIDADE",
+    "pacto_inicial_aceito": "SIM",
+    "cidade": "Nossa Senhora do Socorro",
+    "tipo_imovel": "CASA_PROPRIA",
+    "tipo_telhado": "CERAMICA",
+    "incidencia_sol": "SIM",
+    "valor_conta": "350",
+    "implicacao": "O valor da conta já fez Juan adiar compras importantes.",
+    "decisor": "PROPRIO"
   }
 }
