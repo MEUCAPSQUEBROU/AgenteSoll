@@ -9,6 +9,7 @@ from rich.panel import Panel
 from rich.text import Text
 
 from soll.adapters.buffer_store.memory import InMemoryBufferStore
+from soll.adapters.sheets import build_lead_mirror
 from soll.agent.lead_store import LeadStore
 from soll.agent.soll_agent import SollAgent
 from soll.agent.tools import build_tools
@@ -29,7 +30,8 @@ _HELP_LINES = (
 
 
 def _build_agent(settings: Settings) -> tuple[SollAgent, LeadStore]:
-    store = LeadStore(Path(settings.leads_fake_path))
+    mirror = build_lead_mirror(settings)
+    store = LeadStore(Path(settings.leads_fake_path), mirror=mirror)
     agent = SollAgent(
         openai_api_key=settings.openai_api_key,
         model_id=_MODEL_ID,

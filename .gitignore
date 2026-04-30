@@ -45,3 +45,13 @@ uv.lock
 *.docx
 *.doc
 *.pdf
+
+# Prints e dúvidas (material temporário, não versionar)
+DuvidasPrints/
+
+# Credenciais Google Cloud (Service Account JSON — NUNCA versionar)
+JsonConsole/
+*.json.key
+google-credentials*.json
+service-account*.json
+*-service-account.json

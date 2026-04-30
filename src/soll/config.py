@@ -37,6 +37,11 @@ class Settings(BaseSettings):
 
     leads_fake_path: str = "data/leads_fake.json"
 
+    google_sheets_enabled: bool = False
+    google_sheets_credentials_path: str = ""
+    google_sheets_spreadsheet_id: str = ""
+    google_sheets_worksheet: str = "Leads"
+
 
 def load_settings() -> Settings:
     return Settings()  # type: ignore[call-arg]

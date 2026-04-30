@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from soll.adapters.sheets import LeadMirror, NoOpLeadMirror
 from soll.logging_setup import get_logger
 
 log = get_logger(__name__)
@@ -17,11 +18,16 @@ class LeadStore:
 
     Para a iteracao atual (fixtures de desenvolvimento). Sera substituido por um
     backend real (Postgres/Redis) quando o agente for pra producao.
+
+    Se um `mirror` for fornecido, toda escrita e replicada de forma assincrona
+    em background (best-effort: falha no mirror nao quebra o fluxo do agente).
     """
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, mirror: LeadMirror | None = None) -> None:
         self._path = path
         self._lock = asyncio.Lock()
+        self._mirror: LeadMirror = mirror or NoOpLeadMirror()
+        self._mirror_tasks: set[asyncio.Task[None]] = set()
 
     async def get(self, user_number: str) -> LeadData:
         async with self._lock:
@@ -36,7 +42,15 @@ class LeadStore:
             data[user_number] = lead
             await self._save(data)
         log.info("lead_store.upsert", user_number=user_number, campo=campo)
+        self._spawn_mirror(user_number, lead)
         return lead
+
+    def _spawn_mirror(self, user_number: str, lead: LeadData) -> None:
+        if isinstance(self._mirror, NoOpLeadMirror):
+            return
+        task = asyncio.create_task(self._mirror.upsert(user_number, dict(lead)))
+        self._mirror_tasks.add(task)
+        task.add_done_callback(self._mirror_tasks.discard)
 
     async def delete(self, user_number: str) -> bool:
         async with self._lock:

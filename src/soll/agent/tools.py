@@ -25,7 +25,12 @@ def build_tools(*, store: LeadStore, user_number: str) -> list[ToolFn]:
         """Atualiza um campo do lead. Chame uma vez por campo (uma chamada = um campo).
 
         Campos validos: `primeiro_nome`, `classificacao`, `etapa_funil`,
-        `valor_conta`, `kwh`, `cidade`, `tipo_imovel`, `tipo_telhado`, `incidencia_sol`.
+        `valor_conta`, `kwh`, `cidade`, `tipo_imovel`, `tipo_telhado`,
+        `incidencia_sol`.
+
+        `tipo_imovel` aceita um dos quatro valores combinados:
+        `CASA_PROPRIA`, `CASA_ALUGADA`, `EMPRESA_PROPRIA`, `EMPRESA_ALUGADA`.
+        Salve depois de capturar tipo (casa/empresa) E posse (propria/alugada).
 
         Para campos numericos (`valor_conta`, `kwh`), passe o numero como string (ex: "750").
         Retorna o lead atualizado.
@@ -42,8 +47,9 @@ def build_tools(*, store: LeadStore, user_number: str) -> list[ToolFn]:
         Args:
             valor_fatura: Valor mensal da conta em R$. Se o lead informou em kWh,
                 converta antes (`valor_fatura = kwh * 0.95`).
-            tipo_imovel: Um de `CASA_PROPRIA`, `CASA_ALUGADA`, `EMPRESA_PROPRIA`
-                ou `EMPRESA_ALUGADA`. Define o percentual de reducao aplicado.
+            tipo_imovel: Um dos quatro combinados (`CASA_PROPRIA`, `CASA_ALUGADA`,
+                `EMPRESA_PROPRIA`, `EMPRESA_ALUGADA`). So o prefixo (CASA vs
+                EMPRESA) afeta o percentual; a posse e dado da ficha.
 
         Retorna dicionario com campos ja formatados em BRL prontos pra inserir
         nas mensagens (`gasto_atual_estimado`, `gasto_com_solar_estimado`,
