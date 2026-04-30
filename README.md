@@ -1,4 +1,4 @@
-# Soll v7 — Camada de pré-processamento
+# Soll — Camada de pré-processamento
 
 > [!WARNING]
 > **Esse projeto está em fase de desenvolvimento, possivelmente não está funcionando certas funções.**
