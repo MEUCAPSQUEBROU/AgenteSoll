@@ -1,0 +1,26 @@
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Protocol
+
+from pydantic import BaseModel
+
+
+class MeetingResult(BaseModel):
+    event_id: str
+    html_link: str
+    meet_link: str
+    start: datetime
+    end: datetime
+
+
+class CalendarClient(Protocol):
+    async def create_meeting(
+        self,
+        *,
+        summary: str,
+        start: datetime,
+        end: datetime,
+        description: str = "",
+        attendee_emails: list[str] | None = None,
+    ) -> MeetingResult: ...

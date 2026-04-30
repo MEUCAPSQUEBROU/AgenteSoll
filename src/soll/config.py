@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     google_sheets_spreadsheet_id: str = ""
     google_sheets_worksheet: str = "Leads"
 
+    google_calendar_enabled: bool = False
+    google_calendar_oauth_client_path: str = ""
+    google_calendar_oauth_token_path: str = ""
+    google_calendar_id: str = "primary"
+
 
 def load_settings() -> Settings:
     return Settings()  # type: ignore[call-arg]
