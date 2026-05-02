@@ -127,9 +127,25 @@ def build_tools(
     async def agendarReuniao(data: str, horario: str) -> dict[str, Any]:  # noqa: N802
         """Cria a reuniao no Google Calendar com link Meet auto-gerado.
 
-        Use SOMENTE quando o lead aceitou um horario especifico E voce ja tem
-        os dados minimos coletados (nome, cidade, valor_conta, tipo_imovel).
-        Apos sucesso, envie o link do Meet pro lead na proxima mensagem.
+        PRECONDICAO ABSOLUTA — NUNCA chame esta tool sem que o lead tenha
+        EXPLICITAMENTE confirmado UM slot especifico (data + horario juntos).
+        Chamar sem confirmacao = lead recebe link Meet sem ter pedido = bug grave.
+
+        Conta como confirmacao:
+          - "pode ser amanha as 9h"
+          - "fechou, hoje 17h"
+          - "ta bom, 11h amanha entao"
+
+        NAO conta como confirmacao (responda em TEXTO oferecendo slots, NAO chame a tool):
+          - "amanha" sozinho (falta horario)
+          - "qual horario voce tem?"  (e pergunta, nao aceite)
+          - "que tem disponivel?"     (idem)
+          - "qualquer um"  / "voce decide"  (ofereca 2 opcoes concretas antes)
+          - "manha" / "tarde" sem horario especifico
+
+        Pre-requisitos adicionais: dados minimos do lead ja coletados (nome,
+        cidade, valor_conta, tipo_imovel). Apos sucesso, envie o link do Meet
+        pro lead na proxima mensagem.
 
         Args:
             data: Data da reuniao em formato ISO `YYYY-MM-DD` (ex: "2026-05-05").

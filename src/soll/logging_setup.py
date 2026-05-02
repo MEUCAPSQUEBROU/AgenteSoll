@@ -8,7 +8,8 @@ import structlog
 
 def configure_logging(level: str = "INFO", pretty: bool = False) -> None:
     logging.basicConfig(
-        format="%(message)s",
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
         stream=sys.stdout,
         level=getattr(logging, level.upper(), logging.INFO),
     )
@@ -16,7 +17,7 @@ def configure_logging(level: str = "INFO", pretty: bool = False) -> None:
     processors: list[structlog.types.Processor] = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
-        structlog.processors.TimeStamper(fmt="iso", utc=True),
+        structlog.processors.TimeStamper(fmt="iso", utc=False),
         structlog.processors.StackInfoRenderer(),
     ]
     if pretty:

@@ -20,7 +20,6 @@ from soll.logging_setup import configure_logging, get_logger
 
 log = get_logger(__name__)
 
-_MODEL_ID = "gpt-4o-mini"
 _USER_PROMPT = "[bold cyan]você[/] [dim]❯[/] "
 _HELP_LINES = (
     "[bold]/help[/]      mostrar esta ajuda",
@@ -36,7 +35,7 @@ def _build_agent(settings: Settings) -> tuple[SollAgent, LeadStore]:
     store = LeadStore(Path(settings.leads_fake_path), mirror=mirror)
     agent = SollAgent(
         openai_api_key=settings.openai_api_key,
-        model_id=_MODEL_ID,
+        model_id=settings.openai_agent_model,
         tools_builder=lambda user_number: list(
             build_tools(
                 store=store,
@@ -50,10 +49,10 @@ def _build_agent(settings: Settings) -> tuple[SollAgent, LeadStore]:
     return agent, store
 
 
-def _banner(user_number: str) -> Panel:
+def _banner(user_number: str, model_id: str) -> Panel:
     body = Text.from_markup(
         f"[bold]usuário[/]  {user_number}\n"
-        f"[bold]modelo[/]   {_MODEL_ID}\n"
+        f"[bold]modelo[/]   {model_id}\n"
         f"[bold]comandos[/] /help · /reset · /quit"
     )
     return Panel(
@@ -88,8 +87,9 @@ async def repl(
     agent: SollAgent,
     lead_store: LeadStore,
     console: Console,
+    model_id: str,
 ) -> None:
-    console.print(_banner(user_number))
+    console.print(_banner(user_number, model_id))
     console.print()
     buffer_store = InMemoryBufferStore()
 
@@ -161,6 +161,7 @@ def main() -> None:
                 agent=agent,
                 lead_store=lead_store,
                 console=console,
+                model_id=settings.openai_agent_model,
             )
         )
     except KeyboardInterrupt:

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     )
 
     openai_api_key: str = Field(..., description="OpenAI API key")
+    openai_agent_model: str = "gpt-4.1-mini"
     openai_transcription_model: str = "whisper-1"
     openai_vision_model: str = "gpt-4o-mini"
 
