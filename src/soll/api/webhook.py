@@ -76,6 +76,7 @@ def create_app(
         lead_store = LeadStore(Path(settings.leads_fake_path))
         runner: AgentRunner = agent or SollAgent(
             openai_api_key=settings.openai_api_key,
+            model_id=settings.openai_agent_model,
             redis_url=settings.redis_url,
         )
 
