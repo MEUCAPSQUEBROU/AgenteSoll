@@ -3,24 +3,29 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, Request
 from openai import AsyncOpenAI
 from redis.asyncio import Redis, from_url
 
+from soll.adapters.buffer_store.base import BufferStore
 from soll.adapters.buffer_store.redis import RedisBufferStore
 from soll.adapters.transcriber.openai_whisper import OpenAIWhisperTranscriber
 from soll.adapters.vision.openai_vision import OpenAIVisionDescriber
 from soll.adapters.whatsapp.base import WhatsAppProvider
 from soll.adapters.whatsapp.meta_cloud import MetaCloudProvider
 from soll.adapters.whatsapp.zapi import ZAPIProvider
+from soll.agent.lead_store import LeadStore
 from soll.agent.soll_agent import AgentRunner, SollAgent
 from soll.config import Settings, load_settings
 from soll.logging_setup import configure_logging, get_logger
 from soll.core.buffer import Buffer
+from soll.core.clear_conversation import clear_conversation, is_clear_command
 from soll.core.convert_to_text import ConvertToText
 from soll.core.filtered_return import filtered_return
+from soll.schemas import TextContent
 
 log = get_logger(__name__)
 
@@ -61,12 +66,14 @@ def create_app(
         convert = ConvertToText(
             whatsapp_provider=provider, transcriber=transcriber, vision=vision
         )
+        buffer_store = RedisBufferStore(redis)
         buffer = Buffer(
-            store=RedisBufferStore(redis),
+            store=buffer_store,
             debounce_seconds=settings.buffer_debounce_seconds,
             max_messages=settings.buffer_max_messages,
             ttl_seconds=settings.buffer_key_ttl_seconds,
         )
+        lead_store = LeadStore(Path(settings.leads_fake_path))
         runner: AgentRunner = agent or SollAgent(
             openai_api_key=settings.openai_api_key,
             redis_url=settings.redis_url,
@@ -78,6 +85,8 @@ def create_app(
         app.state.provider = provider
         app.state.convert = convert
         app.state.buffer = buffer
+        app.state.buffer_store = buffer_store
+        app.state.lead_store = lead_store
         app.state.agent = runner
 
         try:
@@ -98,6 +107,7 @@ def create_app(
         provider: WhatsAppProvider = request.app.state.provider
         settings: Settings = request.app.state.settings
         redis: Redis = request.app.state.redis
+        agent: AgentRunner = request.app.state.agent
 
         parsed = provider.parse_webhook(body)
         if parsed is None:
@@ -115,16 +125,30 @@ def create_app(
         if accepted is None:
             return {"status": "ignored", "reason": "filtered"}
 
+        if isinstance(accepted.content, TextContent) and is_clear_command(
+            accepted.content.text
+        ):
+            lead_store: LeadStore = request.app.state.lead_store
+            buffer_store: BufferStore = request.app.state.buffer_store
+            await clear_conversation(
+                accepted.user_number,
+                lead_store=lead_store,
+                buffer_store=buffer_store,
+                agent_invalidator=getattr(agent, "forget", None),
+            )
+            await provider.send_text(accepted.user_number, "Conversa apagada.")
+            return {"status": "cleared", "message_id": parsed.message_id}
+
         convert: ConvertToText = request.app.state.convert
         text_msg = await convert(accepted)
         if text_msg is None:
             return {"status": "ignored", "reason": "converted_to_none"}
 
         buffer: Buffer = request.app.state.buffer
-        agent: AgentRunner = request.app.state.agent
 
         async def callback(user_number: str, combined: str) -> None:
             response = await agent.run(user_number=user_number, text=combined)
+            await provider.send_text(user_number, response)
             log.info(
                 "agent.response",
                 user_number=user_number,

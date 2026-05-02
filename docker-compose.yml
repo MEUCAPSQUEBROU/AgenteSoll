@@ -5,15 +5,26 @@ services:
       dockerfile: Dockerfile
     image: soll:dev
     env_file: .env
+    restart: unless-stopped
     ports:
       - "8000:8000"
     volumes:
       - ./src:/app/src
       - ./tests:/app/tests
+      - ./JsonConsole:/app/JsonConsole:ro
     stdin_open: true
     tty: true
     # Default: roda o servidor FastAPI. Para CLI, use:
     #   docker compose run --rm soll soll-cli
+
+  # Cloudflare Tunnel — expõe http://soll:8000 publicamente em
+  # https://soll.canequeiro.shop (rota configurada no dashboard do túnel "flask_teste").
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - soll
 
   # Redis local opcional (default = usar o REDIS_URL do .env, ex. Redis Cloud).
   # Para subir Redis local: docker compose --profile local-redis up
