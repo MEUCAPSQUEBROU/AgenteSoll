@@ -12,6 +12,8 @@ from redis.asyncio import Redis, from_url
 
 from soll.adapters.buffer_store.base import BufferStore
 from soll.adapters.buffer_store.redis import RedisBufferStore
+from soll.adapters.calendar import build_calendar_client
+from soll.adapters.sheets import build_lead_mirror
 from soll.adapters.transcriber.openai_whisper import OpenAIWhisperTranscriber
 from soll.adapters.vision.openai_vision import OpenAIVisionDescriber
 from soll.adapters.whatsapp.base import WhatsAppProvider
@@ -19,6 +21,7 @@ from soll.adapters.whatsapp.meta_cloud import MetaCloudProvider
 from soll.adapters.whatsapp.zapi import ZAPIProvider
 from soll.agent.lead_store import LeadStore
 from soll.agent.soll_agent import AgentRunner, SollAgent
+from soll.agent.tools import build_tools
 from soll.config import Settings, load_settings
 from soll.logging_setup import configure_logging, get_logger
 from soll.core.buffer import Buffer
@@ -73,10 +76,20 @@ def create_app(
             max_messages=settings.buffer_max_messages,
             ttl_seconds=settings.buffer_key_ttl_seconds,
         )
-        lead_store = LeadStore(Path(settings.leads_fake_path))
+        mirror = build_lead_mirror(settings)
+        calendar_client = build_calendar_client(settings)
+        lead_store = LeadStore(Path(settings.leads_fake_path), mirror=mirror)
         runner: AgentRunner = agent or SollAgent(
             openai_api_key=settings.openai_api_key,
             model_id=settings.openai_agent_model,
+            tools_builder=lambda user_number: list(
+                build_tools(
+                    store=lead_store,
+                    user_number=user_number,
+                    calendar_client=calendar_client,
+                )
+            ),
+            state_provider=lead_store.get,
             redis_url=settings.redis_url,
         )
 
