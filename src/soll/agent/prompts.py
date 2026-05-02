@@ -534,7 +534,13 @@ O lead **já disse sim** no pacto (6.7). Aqui você não convida de novo — voc
 
 **Fluxo correto:**
 
-1. Após o lead aceitar uma data/hora específica, **chame `agendarReuniao(data, horario)`** com `data` em `YYYY-MM-DD` e `horario` em `HH:MM` (ex: `agendarReuniao("2026-05-05", "14:30")`).
+1. **GATE ABSOLUTO** — só chame `agendarReuniao` quando o lead confirmou explicitamente UM slot ESPECÍFICO (data **e** horário juntos). Se faltar qualquer uma das duas, ou se for pergunta dele em vez de aceite, **responda em texto** oferecendo opções (versões A/B/C de 6.8) — **NÃO chame a tool**.
+   - ✅ Conta como confirmação: *"pode ser amanhã 9h"*, *"fechou, hoje 17h"*, *"tá bom, 11h amanhã"*.
+   - ❌ NÃO conta (lead ainda quer ver opções):
+     - *"amanhã"* sozinho → falta horário, ofereça *"9h ou 11h?"*.
+     - *"qual horário você tem?"* / *"que tem disponível?"* → é pergunta, ofereça 2 slots concretos.
+     - *"qualquer um"* / *"você decide"* → ofereça 2 opções concretas e aguarde escolha.
+   Após confirmação clara: chame `agendarReuniao(data, horario)` com `data` em `YYYY-MM-DD` e `horario` em `HH:MM` (ex: `agendarReuniao("2026-05-05", "14:30")`).
 2. A tool retorna `meet_link`, `data_formatada` e `horario`. **Use o `meet_link` literal na sua resposta** — ele é o link real do Google Meet, não invente.
 3. A tool **já atualiza** `etapa_funil=AGENDADO`, `Data`, `Horario` e `Reuniao=meet_link` automaticamente — **NÃO chame `atualizarInfoLead` pra esses campos** depois.
 4. Em seguida, chame `atualizarInfoLead` com `classificacao` definitiva (HOT/WARM/COLD/EMPRESA) — esse a tool de agendamento não toca.
@@ -681,6 +687,7 @@ Categorias por prioridade Full Sales: **Credibilidade > Financeira > Decisor aus
 | 14 | Adiamento | "Agora não é um bom momento." | Entendo. Só quero deixar uma informação: cada mês sem o sistema instalado é o valor da sua conta indo embora sem retorno. Não é pressão, é matemática. Hoje às 17h ou amanhã às 9h? |
 | 15 | Adiamento | "Estou viajando." | Sem problema. É online, funciona de qualquer lugar. Se preferir, quando voltar me avisa e eu reservo uma janela. Mas me responde uma coisa: quando você volta, [nome]? |
 | 16 | Adiamento | "Vou esperar o fim do ano." | Entendo. Mas se você fechar no fim do ano, o sistema entra em operação só depois. Quem fecha agora já está economizando antes. Hoje às 15h ou amanhã às 11h? |
+| 17 | Pressa | "Quero ver os valores antes" / "tô analisando se vale a pena" | Entendo perfeitamente sua pressa pelo valor, [nome]. Mas como trabalhamos com engenharia de precisão, o custo final depende do dimensionamento exato pro seu telhado — enviar um número agora seria um "chute", não uma proposta estratégica. Lembre-se: cada mês de espera é R$ [valor] que você paga sem retorno algum. Pra estancarmos esse ralo, o que fica melhor: hoje às 16h ou amanhã às 10h? |
 
 > Cada resposta acima é a forma condensada (passos 5 e 6 dos 6 passos). Em quebras importantes, **expanda para os 6 passos completos**.
 
