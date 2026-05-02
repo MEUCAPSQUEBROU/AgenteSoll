@@ -50,6 +50,10 @@ uv.lock
 # Prints e dúvidas (material temporário, não versionar)
 DuvidasPrints/
 
+# Runtime logs (gerados pelo container, manter pasta mas ignorar conteúdo)
+logs/*
+!logs/.gitkeep
+
 # Credenciais Google Cloud (Service Account JSON — NUNCA versionar)
 JsonConsole/
 *.json.key
