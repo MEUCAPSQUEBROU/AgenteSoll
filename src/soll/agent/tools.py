@@ -124,6 +124,60 @@ def build_tools(
         log.info("tool.department", user_number=user_number, motivo=motivo)
         return {"status": "encerrado", "motivo": motivo}
 
+    async def verificarDisponibilidade(data: str, horario: str) -> dict[str, Any]:  # noqa: N802
+        """Consulta o Google Calendar para checar se o horario solicitado esta livre.
+
+        Use ANTES de `agendarReuniao` quando o LEAD propor um horario especifico
+        ("pode ser amanha as 14h?", "tem 16h hoje?"). Se voce ja ofereceu 2 slots
+        de 6.8 e o lead aceitou um deles, pode pular essa checagem (slots
+        anchorados sao seguros — mas se a tool reclamar de conflito ai sim use).
+
+        Args:
+            data: Data em formato ISO `YYYY-MM-DD`.
+            horario: Horario em formato 24h `HH:MM`. Fuso de Brasilia.
+
+        Retorna:
+            {"available": True, "data": ..., "horario": ...} se o slot esta livre.
+            {"available": False, "data": ..., "horario": ...} se ocupado.
+            {"error": "..."} se data/horario invalidos ou Calendar desabilitado.
+
+        Apos receber `available=False`, ofereca 2 horarios proximos em texto e
+        aguarde o lead escolher antes de chamar essa tool de novo. Nao chame em
+        loop testando varios horarios — peca pro lead.
+        """
+        if calendar_client is None:
+            return {"error": "calendar_disabled"}
+        try:
+            start = datetime.fromisoformat(f"{data}T{horario}:00").replace(tzinfo=_BR_TZ)
+        except ValueError as exc:
+            log.warning(
+                "tool.verificarDisponibilidade_invalid_input",
+                user_number=user_number,
+                data=data,
+                horario=horario,
+                error=str(exc),
+            )
+            return {"error": f"data ou horario invalido: {exc}"}
+        end = start + timedelta(minutes=_MEETING_DURATION_MIN)
+        try:
+            available = await calendar_client.is_slot_free(start=start, end=end)
+        except Exception as exc:
+            log.warning(
+                "tool.verificarDisponibilidade_failed",
+                user_number=user_number,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            return {"error": f"falha ao consultar calendario: {exc}"}
+        log.info(
+            "tool.verificarDisponibilidade",
+            user_number=user_number,
+            data=data,
+            horario=horario,
+            available=available,
+        )
+        return {"available": available, "data": data, "horario": horario}
+
     async def agendarReuniao(data: str, horario: str) -> dict[str, Any]:  # noqa: N802
         """Cria a reuniao no Google Calendar com link Meet auto-gerado.
 
@@ -213,5 +267,6 @@ def build_tools(
 
     tools: list[ToolFn] = [atualizarInfoLead, CalKWats, department]
     if calendar_client is not None:
+        tools.append(verificarDisponibilidade)
         tools.append(agendarReuniao)
     return tools

@@ -60,6 +60,35 @@ class GoogleCalendarClient(CalendarClient):
         service: Resource = build("calendar", "v3", credentials=creds, cache_discovery=False)
         return service
 
+    async def is_slot_free(self, *, start: datetime, end: datetime) -> bool:
+        """Verifica via freebusy.query se o intervalo [start, end) esta livre.
+
+        Retorna True se NENHUM evento ocupa qualquer parte do intervalo.
+        Falha de API e tratada como "indisponivel" pra ser conservador (False) —
+        o agente vai propor outro horario em vez de tentar agendar as cegas.
+        """
+        service = await self._ensure_service()
+        body: dict[str, Any] = {
+            "timeMin": start.isoformat(),
+            "timeMax": end.isoformat(),
+            "items": [{"id": self._calendar_id}],
+        }
+        try:
+            result = await asyncio.to_thread(
+                lambda: service.freebusy().query(body=body).execute()
+            )
+        except Exception as exc:
+            log.warning(
+                "calendar.freebusy_failed",
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            return False
+        busy_blocks = (
+            result.get("calendars", {}).get(self._calendar_id, {}).get("busy", [])
+        )
+        return len(busy_blocks) == 0
+
     async def create_meeting(
         self,
         *,
