@@ -26,6 +26,8 @@ _TELEFONE_COLUMN = "telefone"
 _DDD_COLUMN = "ddd"
 _CREATED_AT = "created_at"
 _UPDATED_AT = "updated_at"
+_STATUS_COLUMN = "status"
+_ETAPA_FUNIL = "etapa_funil"
 
 _LEAD_ID_PREFIX = "SOLL-"
 _LEAD_ID_PAD = 6
@@ -33,6 +35,21 @@ _LEAD_ID_PATTERN = re.compile(rf"^{_LEAD_ID_PREFIX}(\d+)$")
 
 _BRAZIL_DDI = "55"
 _BRAZIL_E164_LENGTH = 13
+
+# Derivação de `status` a partir de `etapa_funil`. Tudo que não for terminal
+# (AGENDADO/TRANSFERIDO/ENCERRADO) conta como EM_ATENDIMENTO. Sem `etapa_funil`,
+# é lead novo que ainda não entrou no fluxo.
+_TERMINAL_STATUS = {
+    "AGENDADO": "AGENDADO",
+    "TRANSFERIDO": "TRANSFERIDO",
+    "ENCERRADO": "ENCERRADO",
+}
+
+
+def _derive_status(etapa_funil: Any) -> str:
+    if not etapa_funil:
+        return "NOVO"
+    return _TERMINAL_STATUS.get(str(etapa_funil), "EM_ATENDIMENTO")
 
 
 def _now_iso() -> str:
@@ -161,6 +178,8 @@ class GSpreadLeadMirror(LeadMirror):
                 payload[_ID_COLUMN] = _next_lead_id(existing_ids)
             payload.setdefault(_CREATED_AT, now)
         payload[_UPDATED_AT] = now
+        if _STATUS_COLUMN in self._col_index:
+            payload[_STATUS_COLUMN] = _derive_status(payload.get(_ETAPA_FUNIL))
 
         if row_num == 0:
             assert self._header is not None
