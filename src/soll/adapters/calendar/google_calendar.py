@@ -64,10 +64,17 @@ class GoogleCalendarClient(CalendarClient):
         return service
 
     async def next_free_slots(
-        self, *, count: int = 3, horizon_days: int = 7
+        self,
+        *,
+        count: int = 3,
+        horizon_days: int = 7,
+        start_date: datetime | None = None,
     ) -> list[datetime]:
         """Retorna os proximos `count` slots livres de 30min em dias uteis,
-        dentro de `horizon_days` dias a partir de agora.
+        dentro de `horizon_days` dias a partir de `start_date` (default = agora).
+
+        Quando `start_date` e fornecido (lead pediu um dia especifico tipo
+        "quarta"), a busca COMECA daquela data; horizonte aplica em cima dela.
 
         Horario comercial: 09h-12h e 14h-18h (sem 12h e 13h por almoco).
         Faz UMA freebusy.query cobrindo o horizonte inteiro e filtra os
@@ -76,8 +83,9 @@ class GoogleCalendarClient(CalendarClient):
         """
         service = await self._ensure_service()
         now = datetime.now(_BR_TZ)
+        anchor = start_date if start_date is not None else now
         candidates: list[datetime] = []
-        cursor = now.date()
+        cursor = anchor.date()
         days_checked = 0
         while days_checked < horizon_days and len(candidates) < count * 4:
             if cursor.weekday() < 5:

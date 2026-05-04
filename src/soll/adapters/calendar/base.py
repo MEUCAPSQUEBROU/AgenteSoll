@@ -28,5 +28,9 @@ class CalendarClient(Protocol):
     async def is_slot_free(self, *, start: datetime, end: datetime) -> bool: ...
 
     async def next_free_slots(
-        self, *, count: int = 3, horizon_days: int = 7
+        self,
+        *,
+        count: int = 3,
+        horizon_days: int = 7,
+        start_date: datetime | None = None,
     ) -> list[datetime]: ...

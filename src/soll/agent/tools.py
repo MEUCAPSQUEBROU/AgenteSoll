@@ -124,29 +124,58 @@ def build_tools(
         log.info("tool.department", user_number=user_number, motivo=motivo)
         return {"status": "encerrado", "motivo": motivo}
 
-    async def obterProximosHorariosLivres(quantidade: int = 3) -> dict[str, Any]:  # noqa: N802
+    async def obterProximosHorariosLivres(  # noqa: N802
+        quantidade: int = 3, data_inicio: str | None = None
+    ) -> dict[str, Any]:
         """Consulta o Google Calendar e retorna os proximos `quantidade` slots
         livres de 30min em DIAS UTEIS (segunda a sexta), em horario comercial
         (09h-12h e 14h-18h).
 
-        Use SEMPRE como primeira acao em 6.8 (PROPOSTA_DATA), antes de propor
+        Use SEMPRE como primeira acao em 6.8 (PROPOSTA_DATA) antes de propor
         horarios. Pegue 3 slots por padrao e ofereca todos os 3 ao lead na
-        mensagem (com data, horario e dia da semana). NUNCA invente horarios
-        proprios — sempre use o que essa tool devolveu.
+        mensagem. NUNCA invente horarios proprios — sempre use o que essa
+        tool devolveu.
+
+        QUANDO USAR `data_inicio`:
+          - Lead pediu um DIA ESPECIFICO ("quero quarta", "pode ser dia 12?",
+            "semana que vem"): traduza pra YYYY-MM-DD e passe em `data_inicio`.
+            A tool busca slots COMECANDO daquela data (nao de hoje).
+          - Lead nao especificou dia ou foi generico ("amanha", "logo"):
+            omita `data_inicio` (default = hoje).
 
         Args:
             quantidade: Numero de slots a retornar (default 3, max 5).
+            data_inicio: Data ISO `YYYY-MM-DD` opcional. Se fornecida, busca
+                comeca dela (em vez de hoje). Use quando o lead pede um dia
+                especifico — assim voce ja olha a agenda DAQUELE dia em vez
+                de pular pro proximo dia que tem disponibilidade alta.
 
         Retorna:
             {"slots": [{"data", "horario", "data_formatada", "dia_semana"}, ...]}
-            Lista vazia se nada disponivel no horizonte de 7 dias uteis.
-            {"error": "..."} se Calendar desabilitado ou falha.
+            Lista vazia se nada livre no horizonte de 7 dias a partir do
+            `data_inicio` (ou de hoje).
+            {"error": "..."} se Calendar desabilitado, data invalida ou falha.
         """
         if calendar_client is None:
             return {"error": "calendar_disabled"}
+        start_dt: datetime | None = None
+        if data_inicio:
+            try:
+                start_dt = datetime.fromisoformat(f"{data_inicio}T00:00:00").replace(
+                    tzinfo=_BR_TZ
+                )
+            except ValueError as exc:
+                log.warning(
+                    "tool.obterProximosHorariosLivres_invalid_date",
+                    user_number=user_number,
+                    data_inicio=data_inicio,
+                    error=str(exc),
+                )
+                return {"error": f"data_inicio invalida: {exc}"}
         try:
             slots = await calendar_client.next_free_slots(
-                count=min(max(quantidade, 1), 5)
+                count=min(max(quantidade, 1), 5),
+                start_date=start_dt,
             )
         except Exception as exc:
             log.warning(
@@ -173,6 +202,7 @@ def build_tools(
             user_number=user_number,
             quantidade_solicitada=quantidade,
             quantidade_retornada=len(slots),
+            data_inicio=data_inicio,
         )
         return result
 
