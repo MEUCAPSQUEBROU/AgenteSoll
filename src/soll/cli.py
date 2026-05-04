@@ -10,7 +10,7 @@ from rich.text import Text
 
 from soll.adapters.buffer_store.memory import InMemoryBufferStore
 from soll.adapters.calendar import build_calendar_client
-from soll.adapters.sheets import build_lead_mirror
+from soll.adapters.sheets import build_images_store, build_lead_mirror
 from soll.agent.lead_store import LeadStore
 from soll.agent.soll_agent import SollAgent
 from soll.agent.tools import build_tools
@@ -32,6 +32,7 @@ _HELP_LINES = (
 def _build_agent(settings: Settings) -> tuple[SollAgent, LeadStore]:
     mirror = build_lead_mirror(settings)
     calendar_client = build_calendar_client(settings)
+    images_store = build_images_store(settings)
     store = LeadStore(Path(settings.leads_fake_path), mirror=mirror)
     agent = SollAgent(
         openai_api_key=settings.openai_api_key,
@@ -41,6 +42,8 @@ def _build_agent(settings: Settings) -> tuple[SollAgent, LeadStore]:
                 store=store,
                 user_number=user_number,
                 calendar_client=calendar_client,
+                images_store=images_store,
+                provider=None,
             )
         ),
         state_provider=store.get,

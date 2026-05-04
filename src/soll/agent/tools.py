@@ -5,6 +5,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from soll.adapters.calendar import CalendarClient
+from soll.adapters.sheets import SheetsImagesStore
+from soll.adapters.whatsapp.base import WhatsAppProvider
 from soll.agent.lead_store import LeadStore
 from soll.core.cal_kwats import calculate_savings
 from soll.logging_setup import get_logger
@@ -45,6 +47,8 @@ def build_tools(
     store: LeadStore,
     user_number: str,
     calendar_client: CalendarClient | None = None,
+    images_store: SheetsImagesStore | None = None,
+    provider: WhatsAppProvider | None = None,
 ) -> list[ToolFn]:
     """Constroi as tools do agente Soll com `store` e `user_number` em closure.
 
@@ -55,6 +59,8 @@ def build_tools(
 
     Se `calendar_client` for None, a tool `agendarReuniao` nao e exposta —
     o LLM nao tem como tentar agendar reuniao quando o Calendar esta desabilitado.
+    Mesmo padrao pra `enviarImagem`: so e exposta se `images_store` E `provider`
+    estiverem disponiveis (Sheets habilitado E provider de WhatsApp ativo).
     """
 
     async def atualizarInfoLead(campo: str, valor: str) -> dict[str, Any]:  # noqa: N802
@@ -347,9 +353,65 @@ def build_tools(
             "horario": horario,
         }
 
+    async def enviarImagem(id: str) -> dict[str, Any]:  # noqa: N802
+        """Envia uma imagem do catalogo da empresa para o lead, identificada pelo `id`.
+
+        Use quando precisar mostrar visualmente algo do nosso material (foto de
+        produto, portfolio, antes/depois, exemplo de instalacao, etc.). A
+        descricao cadastrada na planilha e enviada como caption automaticamente,
+        entao NAO mande texto separado descrevendo a imagem na mesma rodada.
+
+        Args:
+            id: Identificador da imagem na planilha (ex: "telhado_metalico_01").
+                Os ids disponiveis sao decididos pelo time, nao invente — se em
+                duvida, peca clarificacao ao lead em vez de chutar.
+
+        Retorna `{"status": "ok", "id", "url", "message_id"}` em sucesso.
+        Retorna `{"error": "..."}` se o id nao existe ou o envio falhou —
+        nesses casos nao reenvie sem confirmar.
+        """
+        if images_store is None or provider is None:
+            return {"error": "images_disabled"}
+        image = await images_store.get(id)
+        if image is None:
+            log.warning(
+                "tool.enviarImagem_not_found",
+                user_number=user_number,
+                image_id=id,
+            )
+            return {"error": f"imagem '{id}' nao encontrada no catalogo"}
+        url = str(image["url"])
+        caption = image.get("descricao") or None
+        try:
+            result = await provider.send_image(user_number, url, caption=caption)
+        except Exception as exc:
+            log.warning(
+                "tool.enviarImagem_send_failed",
+                user_number=user_number,
+                image_id=id,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            return {"error": f"falha ao enviar imagem: {exc}"}
+        log.info(
+            "tool.enviarImagem",
+            user_number=user_number,
+            image_id=id,
+            url=url,
+            message_id=result.message_id,
+        )
+        return {
+            "status": "ok",
+            "id": id,
+            "url": url,
+            "message_id": result.message_id,
+        }
+
     tools: list[ToolFn] = [atualizarInfoLead, CalKWats, department]
     if calendar_client is not None:
         tools.append(obterProximosHorariosLivres)
         tools.append(verificarDisponibilidade)
         tools.append(agendarReuniao)
+    if images_store is not None and provider is not None:
+        tools.append(enviarImagem)
     return tools
