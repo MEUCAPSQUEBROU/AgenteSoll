@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     zapi_instance_id: str = ""
     zapi_token: str = ""
     zapi_client_token: str = ""
+    zapi_delay_typing: int = 3
 
     log_level: str = "INFO"
     log_pretty: bool = False

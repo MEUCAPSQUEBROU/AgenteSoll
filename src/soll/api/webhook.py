@@ -39,6 +39,7 @@ def _build_provider(settings: Settings, http: httpx.AsyncClient) -> WhatsAppProv
             instance_id=settings.zapi_instance_id,
             token=settings.zapi_token,
             client_token=settings.zapi_client_token,
+            delay_typing=settings.zapi_delay_typing,
             http_client=http,
         )
     return MetaCloudProvider()

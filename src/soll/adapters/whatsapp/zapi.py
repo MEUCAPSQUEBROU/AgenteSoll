@@ -149,11 +149,13 @@ class ZAPIProvider(WhatsAppProvider):
         instance_id: str,
         token: str,
         client_token: str,
+        delay_typing: int = 3,
         http_client: httpx.AsyncClient | None = None,
     ) -> None:
         self._instance_id = instance_id
         self._token = token
         self._client_token = client_token
+        self._delay_typing = delay_typing
         self._http = http_client or httpx.AsyncClient(timeout=30.0)
 
     def parse_webhook(self, raw_body: dict[str, object]) -> FilteredPayload | None:
@@ -184,7 +186,10 @@ class ZAPIProvider(WhatsAppProvider):
         )
 
     async def send_text(self, to: str, text: str) -> SendResult:
-        return await self._send_payload("text", {"phone": to, "message": text})
+        payload: dict[str, object] = {"phone": to, "message": text}
+        if self._delay_typing > 0:
+            payload["delayTyping"] = self._delay_typing
+        return await self._send_payload("text", payload)
 
     async def send_audio(self, to: str, audio_url: str) -> SendResult:
         return await self._send_payload("audio", {"phone": to, "audio": audio_url})
