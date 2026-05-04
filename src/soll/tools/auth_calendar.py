@@ -27,7 +27,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow  # type: ignore[import-un
 
 from soll.config import load_settings
 
-_SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
+_SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
 
 def _harden_token_perms(token_path: Path) -> None:

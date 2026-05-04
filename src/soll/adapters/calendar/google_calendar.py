@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +15,10 @@ from soll.logging_setup import get_logger
 
 log = get_logger(__name__)
 
-_SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
+_SCOPES = ["https://www.googleapis.com/auth/calendar"]
+_BR_TZ = timezone(timedelta(hours=-3))
+_BUSINESS_HOURS = (9, 10, 11, 14, 15, 16, 17)
+_MEETING_DURATION_MIN = 30
 
 
 class GoogleCalendarClient(CalendarClient):
@@ -59,6 +62,79 @@ class GoogleCalendarClient(CalendarClient):
             log.info("calendar.token_refreshed")
         service: Resource = build("calendar", "v3", credentials=creds, cache_discovery=False)
         return service
+
+    async def next_free_slots(
+        self, *, count: int = 3, horizon_days: int = 7
+    ) -> list[datetime]:
+        """Retorna os proximos `count` slots livres de 30min em dias uteis,
+        dentro de `horizon_days` dias a partir de agora.
+
+        Horario comercial: 09h-12h e 14h-18h (sem 12h e 13h por almoco).
+        Faz UMA freebusy.query cobrindo o horizonte inteiro e filtra os
+        candidatos contra os busy_blocks retornados — eficiente.
+        Falha de API e tratada como lista vazia.
+        """
+        service = await self._ensure_service()
+        now = datetime.now(_BR_TZ)
+        candidates: list[datetime] = []
+        cursor = now.date()
+        days_checked = 0
+        while days_checked < horizon_days and len(candidates) < count * 4:
+            if cursor.weekday() < 5:
+                for h in _BUSINESS_HOURS:
+                    slot = datetime(
+                        cursor.year, cursor.month, cursor.day, h, 0, 0, tzinfo=_BR_TZ
+                    )
+                    if slot > now + timedelta(minutes=15):
+                        candidates.append(slot)
+            cursor = cursor + timedelta(days=1)
+            days_checked += 1
+
+        if not candidates:
+            return []
+
+        time_min = candidates[0]
+        time_max = candidates[-1] + timedelta(minutes=_MEETING_DURATION_MIN)
+        body: dict[str, Any] = {
+            "timeMin": time_min.isoformat(),
+            "timeMax": time_max.isoformat(),
+            "items": [{"id": self._calendar_id}],
+        }
+        try:
+            result = await asyncio.to_thread(
+                lambda: service.freebusy().query(body=body).execute()
+            )
+        except Exception as exc:
+            log.warning(
+                "calendar.next_free_slots_failed",
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            return []
+
+        busy_blocks = (
+            result.get("calendars", {}).get(self._calendar_id, {}).get("busy", [])
+        )
+        busy_intervals: list[tuple[datetime, datetime]] = []
+        for b in busy_blocks:
+            try:
+                bs = datetime.fromisoformat(b["start"].replace("Z", "+00:00"))
+                be = datetime.fromisoformat(b["end"].replace("Z", "+00:00"))
+                busy_intervals.append((bs, be))
+            except (KeyError, ValueError):
+                continue
+
+        free: list[datetime] = []
+        for slot in candidates:
+            slot_end = slot + timedelta(minutes=_MEETING_DURATION_MIN)
+            overlaps = any(
+                slot < be and slot_end > bs for bs, be in busy_intervals
+            )
+            if not overlaps:
+                free.append(slot)
+                if len(free) >= count:
+                    break
+        return free
 
     async def is_slot_free(self, *, start: datetime, end: datetime) -> bool:
         """Verifica via freebusy.query se o intervalo [start, end) esta livre.

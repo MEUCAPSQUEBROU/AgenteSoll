@@ -124,6 +124,58 @@ def build_tools(
         log.info("tool.department", user_number=user_number, motivo=motivo)
         return {"status": "encerrado", "motivo": motivo}
 
+    async def obterProximosHorariosLivres(quantidade: int = 3) -> dict[str, Any]:  # noqa: N802
+        """Consulta o Google Calendar e retorna os proximos `quantidade` slots
+        livres de 30min em DIAS UTEIS (segunda a sexta), em horario comercial
+        (09h-12h e 14h-18h).
+
+        Use SEMPRE como primeira acao em 6.8 (PROPOSTA_DATA), antes de propor
+        horarios. Pegue 3 slots por padrao e ofereca todos os 3 ao lead na
+        mensagem (com data, horario e dia da semana). NUNCA invente horarios
+        proprios — sempre use o que essa tool devolveu.
+
+        Args:
+            quantidade: Numero de slots a retornar (default 3, max 5).
+
+        Retorna:
+            {"slots": [{"data", "horario", "data_formatada", "dia_semana"}, ...]}
+            Lista vazia se nada disponivel no horizonte de 7 dias uteis.
+            {"error": "..."} se Calendar desabilitado ou falha.
+        """
+        if calendar_client is None:
+            return {"error": "calendar_disabled"}
+        try:
+            slots = await calendar_client.next_free_slots(
+                count=min(max(quantidade, 1), 5)
+            )
+        except Exception as exc:
+            log.warning(
+                "tool.obterProximosHorariosLivres_failed",
+                user_number=user_number,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            return {"error": f"falha ao consultar calendario: {exc}"}
+        dias_pt = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"]
+        result = {
+            "slots": [
+                {
+                    "data": s.strftime("%Y-%m-%d"),
+                    "horario": s.strftime("%H:%M"),
+                    "data_formatada": s.strftime("%d/%m/%Y"),
+                    "dia_semana": dias_pt[s.weekday()],
+                }
+                for s in slots
+            ]
+        }
+        log.info(
+            "tool.obterProximosHorariosLivres",
+            user_number=user_number,
+            quantidade_solicitada=quantidade,
+            quantidade_retornada=len(slots),
+        )
+        return result
+
     async def verificarDisponibilidade(data: str, horario: str) -> dict[str, Any]:  # noqa: N802
         """Consulta o Google Calendar para checar se o horario solicitado esta livre.
 
@@ -267,6 +319,7 @@ def build_tools(
 
     tools: list[ToolFn] = [atualizarInfoLead, CalKWats, department]
     if calendar_client is not None:
+        tools.append(obterProximosHorariosLivres)
         tools.append(verificarDisponibilidade)
         tools.append(agendarReuniao)
     return tools

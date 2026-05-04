@@ -14,7 +14,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./tests:/app/tests
-      - ./JsonConsole:/app/JsonConsole:ro
+      - ./JsonConsole:/app/JsonConsole
       - ./logs:/app/logs
     stdin_open: true
     tty: true
