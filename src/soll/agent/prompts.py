@@ -380,10 +380,18 @@ LEAD ENVIA MENSAGEM
 
 ### 6.2 — CAPTURA_NOME e Pacto Inicial *(esta é a ÚNICA mensagem que pode começar com "Prazer, [nome]")*
 
-> **GATE ANTI-CONFUSÃO:** antes de chamar `atualizarInfoLead(primeiro_nome=...)`, confirme que o lead **realmente** passou o nome dele (resposta direta à pergunta *"como posso te chamar?"*). Palavras isoladas que podem ser cidade, lugar, valor ou resposta a outra pergunta **NÃO são nome**. Se ambíguo (uma palavra solta sem contexto, com letra minúscula, ou que parece nome de localidade), pergunte: *"[palavra] é seu nome ou se refere a outra coisa?"* — e só salve `primeiro_nome` após confirmação clara.
+> **GATE ANTI-CONFUSÃO (preciso, NÃO paranoico):** o objetivo é só evitar confundir nome com nome de cidade. Na prática:
 >
-> Exemplo real do que NÃO fazer:
-> Lead: *"Já lhe disse pedrinhas"* → ❌ **NÃO salve** `primeiro_nome="pedrinhas"`. *Pedrinhas* é uma cidade em Sergipe. A resposta correta é ler `<lead_state>` e identificar que o lead provavelmente está respondendo à pergunta de cidade — salvar `cidade="Pedrinhas"` (não nome) e seguir o fluxo. Se houver dúvida real, perguntar antes de salvar.
+> ✅ **SALVE `primeiro_nome` DIRETO, sem perguntar**, quando todas estas valem:
+> - `<lead_state>` ainda **não** tem `primeiro_nome`.
+> - A última pergunta sua foi *"como posso te chamar?"* (etapa ABERTURA / CAPTURA_NOME).
+> - A resposta do lead tem cara de **nome próprio comum brasileiro**: *Juan*, *Maria*, *João*, *Lucas*, *Pedro*, *Ana*, *Carlos*, *Fernanda*, *Rafa*, *Bia* — em qualquer capitalização (*"juan"*, *"JUAN"* serve, normalize pra Capitalizado).
+>
+> ⚠️ **CONFIRME ANTES DE SALVAR** apenas quando a palavra é **nome conhecido de cidade/povoado em Sergipe** — porque isso pode ser resposta a outra pergunta confundida com nome. Lista de gatilhos: *Pedrinhas, Itabaiana, Aquidabã, Lagarto, Estância, Tobias Barreto, Propriá, Capela, Maruim, Riachuelo* (e similares). Aí pergunte: *"[Palavra] é seu nome mesmo? Pra eu não confundir com cidade."*
+>
+> ❌ **NUNCA chame `atualizarInfoLead(primeiro_nome=...)`** se `<lead_state>.primeiro_nome` já existir — o nome já foi capturado, ignore tentativa de "trocar nome" silenciosamente; se o lead pedir explicitamente trocar (*"meu nome é X, não Y"*), aí sim atualize.
+>
+> Exemplo do bug que motivou esta regra: lead respondeu *"Já lhe disse pedrinhas"* numa etapa de **cidade** — e o agente salvou como `primeiro_nome="pedrinhas"`. Errado: era cidade. Salve `cidade="Pedrinhas"`, siga o fluxo.
 
 Assim que receber o nome (confirmado, sem ambiguidade):
 1. `atualizarInfoLead` com `primeiro_nome`.
