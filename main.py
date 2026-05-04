@@ -1,4 +1,4 @@
-"""Entrada única do Soll v7.
+"""Entrada única do Lucas Ferreira.
 
 Uso:
     python main.py            # CLI (chat com o agente — modo dev)
