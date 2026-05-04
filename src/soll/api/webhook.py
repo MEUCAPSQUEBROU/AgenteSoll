@@ -7,6 +7,7 @@ from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
 from openai import AsyncOpenAI
 from redis.asyncio import Redis, from_url
 
@@ -88,6 +89,8 @@ def create_app(
                     store=lead_store,
                     user_number=user_number,
                     calendar_client=calendar_client,
+                    provider=provider,
+                    assets_base_url=settings.assets_base_url,
                 )
             ),
             state_provider=lead_store.get,
@@ -111,6 +114,10 @@ def create_app(
             await redis.aclose()
 
     app = FastAPI(lifespan=lifespan)
+
+    assets_dir = Path("assets")
+    if assets_dir.is_dir():
+        app.mount("/static", StaticFiles(directory=assets_dir), name="static")
 
     @app.get("/health")
     async def health() -> dict[str, str]:

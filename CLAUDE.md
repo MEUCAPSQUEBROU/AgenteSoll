@@ -52,14 +52,13 @@ Z-API → POST /webhook/zapi
 
 `api/webhook.py:create_app` faz toda a wiring no `lifespan`. Cada serviço externo tem um adapter com par `base.py` + impl (`adapters/whatsapp`, `adapters/transcriber`, `adapters/vision`, `adapters/buffer_store`, `adapters/sheets`, `adapters/calendar`). DI sempre via construtor — nunca singleton ou import-time mutável.
 
-## Divergência importante: CLI vs Webhook
+## Wiring CLI vs Webhook
 
-`SollAgent` aceita `tools_builder` e `state_provider` opcionais. Os dois entrypoints wired parcialmente diferente:
+`cli.py:_build_agent` e `api/webhook.py:lifespan` constroem o `SollAgent` com o **mesmo conjunto** de `tools_builder` (`build_tools(...)`) e `state_provider` (`lead_store.get`). A divergência antiga (webhook sem tools) foi fechada — se em produção o agente "diz que vai agendar mas nada acontece", o problema **não é mais** wiring; investigue Calendar (OAuth scope, token expirado, freebusy 403) lendo `logs/soll.log` por linhas `tool.agendarReuniao_calendar_failed` ou `tool.obterProximosHorariosLivres_failed`.
 
-- **`cli.py:_build_agent`** — wiring completo: `tools_builder=build_tools(...)` (busca lead, atualiza lead, agendar reunião) + `state_provider=store.get` (LeadStore).
-- **`api/webhook.py`** — `LeadStore` **já é instanciado** (pra `/apagar .` funcionar), mas o `SollAgent` é construído sem `tools_builder` nem `state_provider`. Resultado: em produção via webhook, agente vê `<lead_state>{}</lead_state>` e tem zero tools — ele responde texto normal mas **nunca chama `agendarReuniao`, `atualizarInfoLead`, etc**. Sintoma típico: lead pede pra marcar reunião, agente diz que vai marcar, **nada acontece** (zero linhas de `tool.*`/`calendar.*` no `logs/soll.log`).
-
-Pra fechar a divergência: passar `tools_builder=lambda u: list(build_tools(store=lead_store, user_number=u, calendar_client=build_calendar_client(settings)))` e `state_provider=lead_store.get` na criação do `SollAgent` no `lifespan`. ~10 linhas, espelhando `_build_agent` do CLI.
+Diferenças reais que sobraram:
+- CLI usa `InMemoryBufferStore` (REPL não precisa Redis); webhook usa `RedisBufferStore`.
+- Tools que dependem de `provider` real de WhatsApp (ex: envio de imagem) só são expostas no webhook — CLI passa `provider=None`.
 
 ## Configuração
 

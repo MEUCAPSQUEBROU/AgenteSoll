@@ -16,6 +16,7 @@ services:
       - ./tests:/app/tests
       - ./JsonConsole:/app/JsonConsole
       - ./logs:/app/logs
+      - ./assets:/app/assets:ro
     stdin_open: true
     tty: true
     # Tee stdout+stderr para arquivo no host (./logs/soll.log) e mantém saída

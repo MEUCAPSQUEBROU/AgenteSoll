@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from soll.adapters.calendar import CalendarClient
+from soll.adapters.whatsapp.base import WhatsAppProvider
 from soll.agent.lead_store import LeadStore
 from soll.core.cal_kwats import calculate_savings
 from soll.logging_setup import get_logger
@@ -45,6 +46,8 @@ def build_tools(
     store: LeadStore,
     user_number: str,
     calendar_client: CalendarClient | None = None,
+    provider: WhatsAppProvider | None = None,
+    assets_base_url: str = "",
 ) -> list[ToolFn]:
     """Constroi as tools do agente Soll com `store` e `user_number` em closure.
 
@@ -55,6 +58,8 @@ def build_tools(
 
     Se `calendar_client` for None, a tool `agendarReuniao` nao e exposta —
     o LLM nao tem como tentar agendar reuniao quando o Calendar esta desabilitado.
+    Mesmo padrao pra `enviarImagem`: so e exposta se `provider` e
+    `assets_base_url` estiverem disponiveis.
     """
 
     async def atualizarInfoLead(campo: str, valor: str) -> dict[str, Any]:  # noqa: N802
@@ -347,9 +352,56 @@ def build_tools(
             "horario": horario,
         }
 
+    base_url = assets_base_url.rstrip("/")
+
+    async def enviarImagem(filename: str, caption: str | None = None) -> dict[str, Any]:  # noqa: N802
+        """Envia uma imagem da pasta de assets para o lead.
+
+        Use quando precisar mostrar visualmente algo do material da empresa
+        (foto de produto, portfolio, antes/depois, exemplo de instalacao, etc.).
+
+        Args:
+            filename: Nome do arquivo na pasta `assets/images/` (ex: "telhado_01.png").
+                Inclua a extensao. NAO invente nomes — use apenas filenames que
+                voce sabe que existem.
+            caption: Texto opcional que vai junto da imagem no WhatsApp. Curto e
+                direto.
+
+        Retorna `{"status": "ok", "url", "message_id"}` em sucesso.
+        Retorna `{"error": "..."}` se o envio falhou — nao reenvie sem confirmar.
+        """
+        if provider is None:
+            return {"error": "provider_unavailable"}
+        url = f"{base_url}/images/{filename}"
+        try:
+            result = await provider.send_image(user_number, url, caption=caption)
+        except Exception as exc:
+            log.warning(
+                "tool.enviarImagem_send_failed",
+                user_number=user_number,
+                filename=filename,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            return {"error": f"falha ao enviar imagem: {exc}"}
+        log.info(
+            "tool.enviarImagem",
+            user_number=user_number,
+            filename=filename,
+            url=url,
+            message_id=result.message_id,
+        )
+        return {
+            "status": "ok",
+            "url": url,
+            "message_id": result.message_id,
+        }
+
     tools: list[ToolFn] = [atualizarInfoLead, CalKWats, department]
     if calendar_client is not None:
         tools.append(obterProximosHorariosLivres)
         tools.append(verificarDisponibilidade)
         tools.append(agendarReuniao)
+    if provider is not None and base_url:
+        tools.append(enviarImagem)
     return tools

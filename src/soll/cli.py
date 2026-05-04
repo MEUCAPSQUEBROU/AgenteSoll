@@ -41,6 +41,8 @@ def _build_agent(settings: Settings) -> tuple[SollAgent, LeadStore]:
                 store=store,
                 user_number=user_number,
                 calendar_client=calendar_client,
+                provider=None,
+                assets_base_url=settings.assets_base_url,
             )
         ),
         state_provider=store.get,
