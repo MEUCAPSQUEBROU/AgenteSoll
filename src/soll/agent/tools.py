@@ -5,7 +5,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from soll.adapters.calendar import CalendarClient
-from soll.adapters.sheets import SheetsImagesStore
 from soll.adapters.whatsapp.base import WhatsAppProvider
 from soll.agent.lead_store import LeadStore
 from soll.core.cal_kwats import calculate_savings
@@ -47,8 +46,8 @@ def build_tools(
     store: LeadStore,
     user_number: str,
     calendar_client: CalendarClient | None = None,
-    images_store: SheetsImagesStore | None = None,
     provider: WhatsAppProvider | None = None,
+    assets_base_url: str = "",
 ) -> list[ToolFn]:
     """Constroi as tools do agente Soll com `store` e `user_number` em closure.
 
@@ -59,8 +58,8 @@ def build_tools(
 
     Se `calendar_client` for None, a tool `agendarReuniao` nao e exposta —
     o LLM nao tem como tentar agendar reuniao quando o Calendar esta desabilitado.
-    Mesmo padrao pra `enviarImagem`: so e exposta se `images_store` E `provider`
-    estiverem disponiveis (Sheets habilitado E provider de WhatsApp ativo).
+    Mesmo padrao pra `enviarImagem`: so e exposta se `provider` e
+    `assets_base_url` estiverem disponiveis.
     """
 
     async def atualizarInfoLead(campo: str, valor: str) -> dict[str, Any]:  # noqa: N802
@@ -353,42 +352,34 @@ def build_tools(
             "horario": horario,
         }
 
-    async def enviarImagem(id: str) -> dict[str, Any]:  # noqa: N802
-        """Envia uma imagem do catalogo da empresa para o lead, identificada pelo `id`.
+    base_url = assets_base_url.rstrip("/")
 
-        Use quando precisar mostrar visualmente algo do nosso material (foto de
-        produto, portfolio, antes/depois, exemplo de instalacao, etc.). A
-        descricao cadastrada na planilha e enviada como caption automaticamente,
-        entao NAO mande texto separado descrevendo a imagem na mesma rodada.
+    async def enviarImagem(filename: str, caption: str | None = None) -> dict[str, Any]:  # noqa: N802
+        """Envia uma imagem da pasta de assets para o lead.
+
+        Use quando precisar mostrar visualmente algo do material da empresa
+        (foto de produto, portfolio, antes/depois, exemplo de instalacao, etc.).
 
         Args:
-            id: Identificador da imagem na planilha (ex: "telhado_metalico_01").
-                Os ids disponiveis sao decididos pelo time, nao invente — se em
-                duvida, peca clarificacao ao lead em vez de chutar.
+            filename: Nome do arquivo na pasta `assets/images/` (ex: "telhado_01.png").
+                Inclua a extensao. NAO invente nomes — use apenas filenames que
+                voce sabe que existem.
+            caption: Texto opcional que vai junto da imagem no WhatsApp. Curto e
+                direto.
 
-        Retorna `{"status": "ok", "id", "url", "message_id"}` em sucesso.
-        Retorna `{"error": "..."}` se o id nao existe ou o envio falhou —
-        nesses casos nao reenvie sem confirmar.
+        Retorna `{"status": "ok", "url", "message_id"}` em sucesso.
+        Retorna `{"error": "..."}` se o envio falhou — nao reenvie sem confirmar.
         """
-        if images_store is None or provider is None:
-            return {"error": "images_disabled"}
-        image = await images_store.get(id)
-        if image is None:
-            log.warning(
-                "tool.enviarImagem_not_found",
-                user_number=user_number,
-                image_id=id,
-            )
-            return {"error": f"imagem '{id}' nao encontrada no catalogo"}
-        url = str(image["url"])
-        caption = image.get("descricao") or None
+        if provider is None:
+            return {"error": "provider_unavailable"}
+        url = f"{base_url}/images/{filename}"
         try:
             result = await provider.send_image(user_number, url, caption=caption)
         except Exception as exc:
             log.warning(
                 "tool.enviarImagem_send_failed",
                 user_number=user_number,
-                image_id=id,
+                filename=filename,
                 error=str(exc),
                 error_type=type(exc).__name__,
             )
@@ -396,13 +387,12 @@ def build_tools(
         log.info(
             "tool.enviarImagem",
             user_number=user_number,
-            image_id=id,
+            filename=filename,
             url=url,
             message_id=result.message_id,
         )
         return {
             "status": "ok",
-            "id": id,
             "url": url,
             "message_id": result.message_id,
         }
@@ -412,6 +402,6 @@ def build_tools(
         tools.append(obterProximosHorariosLivres)
         tools.append(verificarDisponibilidade)
         tools.append(agendarReuniao)
-    if images_store is not None and provider is not None:
+    if provider is not None and base_url:
         tools.append(enviarImagem)
     return tools

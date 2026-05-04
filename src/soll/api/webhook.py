@@ -14,7 +14,7 @@ from redis.asyncio import Redis, from_url
 from soll.adapters.buffer_store.base import BufferStore
 from soll.adapters.buffer_store.redis import RedisBufferStore
 from soll.adapters.calendar import build_calendar_client
-from soll.adapters.sheets import build_images_store, build_lead_mirror
+from soll.adapters.sheets import build_lead_mirror
 from soll.adapters.transcriber.openai_whisper import OpenAIWhisperTranscriber
 from soll.adapters.vision.openai_vision import OpenAIVisionDescriber
 from soll.adapters.whatsapp.base import WhatsAppProvider
@@ -79,7 +79,6 @@ def create_app(
         )
         mirror = build_lead_mirror(settings)
         calendar_client = build_calendar_client(settings)
-        images_store = build_images_store(settings)
         lead_store = LeadStore(Path(settings.leads_fake_path), mirror=mirror)
         runner: AgentRunner = agent or SollAgent(
             openai_api_key=settings.openai_api_key,
@@ -89,8 +88,8 @@ def create_app(
                     store=lead_store,
                     user_number=user_number,
                     calendar_client=calendar_client,
-                    images_store=images_store,
                     provider=provider,
+                    assets_base_url=settings.assets_base_url,
                 )
             ),
             state_provider=lead_store.get,

@@ -42,7 +42,6 @@ class Settings(BaseSettings):
     google_sheets_credentials_path: str = ""
     google_sheets_spreadsheet_id: str = ""
     google_sheets_worksheet: str = "Leads"
-    google_sheets_images_worksheet: str = "Imagens"
 
     assets_base_url: str = "https://soll.canequeiro.shop/static"
 

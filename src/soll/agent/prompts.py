@@ -3,8 +3,7 @@
 Alinhado ao Soll_v6_Full_Sales_Pure.docx (linha metodologica B) com as tools
 disponiveis no projeto Python: atualizarInfoLead, CalKWats, department,
 agendarReuniao (exposta apenas quando GOOGLE_CALENDAR_ENABLED=true) e
-enviarImagem (exposta apenas quando GOOGLE_SHEETS_ENABLED=true e ha provider
-de WhatsApp ativo). O
+enviarImagem (exposta apenas quando ha provider de WhatsApp ativo). O
 estado do lead e persistido entre turnos (Redis-backed via LeadStore) e
 chega ao agente prefixado em <lead_state>...</lead_state>.
 
