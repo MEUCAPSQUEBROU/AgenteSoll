@@ -118,7 +118,9 @@ class GoogleCalendarClient(CalendarClient):
                 error=str(exc),
                 error_type=type(exc).__name__,
             )
-            return []
+            # Propaga em vez de retornar [] silenciosamente — assim o tool
+            # reporta erro ao agente e ele para de fingir "agenda lotada".
+            raise
 
         busy_blocks = (
             result.get("calendars", {}).get(self._calendar_id, {}).get("busy", [])
