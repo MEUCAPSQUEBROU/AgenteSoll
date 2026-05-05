@@ -168,7 +168,7 @@ def create_app(
             chunks = split_agent_response(response) or [response]
             for index, chunk in enumerate(chunks):
                 if index > 0:
-                    await asyncio.sleep(1.2)
+                    await asyncio.sleep(0.6)
                 await provider.send_text(user_number, chunk)
             log.info(
                 "agent.response",
