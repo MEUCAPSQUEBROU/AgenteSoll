@@ -16,6 +16,7 @@ from soll.agent.soll_agent import SollAgent
 from soll.agent.tools import build_tools
 from soll.config import Settings, load_settings
 from soll.core.clear_conversation import clear_conversation, is_clear_command
+from soll.core.split_response import split_agent_response
 from soll.logging_setup import configure_logging, get_logger
 
 log = get_logger(__name__)
@@ -136,8 +137,10 @@ async def repl(
             console.print(f"[bold red]erro[/]: {exc}\n")
             continue
 
-        console.print(_agent_panel(response))
-        console.print()
+        chunks = split_agent_response(response) or [response]
+        for chunk in chunks:
+            console.print(_agent_panel(chunk))
+            console.print()
 
 
 def main() -> None:

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
@@ -24,11 +24,12 @@ from soll.agent.lead_store import LeadStore
 from soll.agent.soll_agent import AgentRunner, SollAgent
 from soll.agent.tools import build_tools
 from soll.config import Settings, load_settings
-from soll.logging_setup import configure_logging, get_logger
 from soll.core.buffer import Buffer
 from soll.core.clear_conversation import clear_conversation, is_clear_command
 from soll.core.convert_to_text import ConvertToText
 from soll.core.filtered_return import filtered_return
+from soll.core.split_response import split_agent_response
+from soll.logging_setup import configure_logging, get_logger
 from soll.schemas import TextContent
 
 log = get_logger(__name__)
@@ -65,12 +66,8 @@ def create_app(
         transcriber = OpenAIWhisperTranscriber(
             client=openai_client, model=settings.openai_transcription_model
         )
-        vision = OpenAIVisionDescriber(
-            client=openai_client, model=settings.openai_vision_model
-        )
-        convert = ConvertToText(
-            whatsapp_provider=provider, transcriber=transcriber, vision=vision
-        )
+        vision = OpenAIVisionDescriber(client=openai_client, model=settings.openai_vision_model)
+        convert = ConvertToText(whatsapp_provider=provider, transcriber=transcriber, vision=vision)
         buffer_store = RedisBufferStore(redis)
         buffer = Buffer(
             store=buffer_store,
@@ -147,9 +144,7 @@ def create_app(
         if accepted is None:
             return {"status": "ignored", "reason": "filtered"}
 
-        if isinstance(accepted.content, TextContent) and is_clear_command(
-            accepted.content.text
-        ):
+        if isinstance(accepted.content, TextContent) and is_clear_command(accepted.content.text):
             lead_store: LeadStore = request.app.state.lead_store
             buffer_store: BufferStore = request.app.state.buffer_store
             await clear_conversation(
@@ -170,11 +165,16 @@ def create_app(
 
         async def callback(user_number: str, combined: str) -> None:
             response = await agent.run(user_number=user_number, text=combined)
-            await provider.send_text(user_number, response)
+            chunks = split_agent_response(response) or [response]
+            for index, chunk in enumerate(chunks):
+                if index > 0:
+                    await asyncio.sleep(1.2)
+                await provider.send_text(user_number, chunk)
             log.info(
                 "agent.response",
                 user_number=user_number,
                 response_length=len(response),
+                chunks=len(chunks),
             )
 
         asyncio.create_task(buffer.add_and_process(text_msg, callback))
